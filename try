@@ -24,6 +24,7 @@ export TRY_COMMAND
 ################################################################################
 
 try() {
+
     START_DIR="$PWD"
 
     if ! command -v findmnt >/dev/null
@@ -131,9 +132,28 @@ try() {
     export chroot_executable
     export script_to_execute
 
-    cat >"$mount_and_execute" <<"EOF"
-#!/bin/sh
 
+case "$(uname)" in
+    Linux)
+        USER_SHELL=$(stat --format='%N' /proc/$$/exe | awk -F'-> ' '{print $2}' | tr -d "'")
+        ;;
+    FreeBSD)
+        USER_SHELL=$(procstat -bh $$ | awk '{print substr($0, index($0,$4))}')
+        ;;
+    *)
+        echo "Unsupported OS for dynamic shell detection. Using default /bin/sh." >&2
+        USER_SHELL="/bin/sh"
+        ;;
+esac
+
+# Fallback to /bin/sh if no valid shell is found
+if [ ! -x "$USER_SHELL" ]; then
+    echo "Detected shell ($USER_SHELL) is not executable. Falling back to /bin/sh."
+    USER_SHELL="/bin/sh"
+fi
+
+echo "#!$USER_SHELL" > "$mount_and_execute"
+    cat >>"$mount_and_execute" <<"EOF"
 TRY_COMMAND="$TRY_COMMAND($0)"
 
 ## A wrapper of `mount -t overlay` to have cleaner looking code
@@ -260,9 +280,9 @@ unmount_devices "$SANDBOX_DIR"
 exit $exitcode
 EOF
 
+echo "#!$USER_SHELL" > "$chroot_executable"
     # NB we substitute in the heredoc, so the early unsets are okay!
-    cat >"$chroot_executable" <<EOF
-#!/bin/sh
+    cat >>"$chroot_executable" <<EOF
 
 unset START_DIR SANDBOX_DIR UNION_HELPER DIRS_AND_MOUNTS TRY_EXIT_STATUS
 unset script_to_execute chroot_executable try_mount_log
