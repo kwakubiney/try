@@ -24,7 +24,6 @@ export TRY_COMMAND
 ################################################################################
 
 try() {
-
     START_DIR="$PWD"
 
     if ! command -v findmnt >/dev/null
@@ -148,7 +147,6 @@ esac
 
 # Fallback to /bin/sh if no valid shell is found
 if [ ! -x "$USER_SHELL" ]; then
-    echo "Detected shell ($USER_SHELL) is not executable. Falling back to /bin/sh."
     USER_SHELL="/bin/sh"
 fi
 
